@@ -54,6 +54,28 @@ changes. Designed to slot into the LCYT ecosystem as a peer container.
 | `MCP_PORT` | int | `3100` | Port the MCP/streamable-HTTP server listens on. |
 | `STREAM_RECONNECT_MAX` | int | `0` (unlimited) | Max ffmpeg reconnect attempts before giving up. |
 
+## Choosing an Ollama vision model
+
+`OLLAMA_MODEL` must be a vision-capable (multimodal) model pulled into your
+Ollama instance (`ollama pull <model>`). Latency matters more than raw
+quality here — the model needs to keep up with `FRAME_INTERVAL` — so prefer
+the smallest model that still produces reliable JSON for your prompt.
+
+| Model | Size | Notes |
+|---|---|---|
+| `moondream` | ~1.8B | Fastest option here, runs well on CPU or modest GPUs. Good for simple scene/posture detection at short `FRAME_INTERVAL`; less reliable on detailed JSON schemas or fine-grained subjects. |
+| `qwen2.5vl:3b` | 3B | Good low-latency default. Solid instruction-following for structured JSON output, reasonable detail recognition. |
+| `qwen3-vl:8b` | 8B | The default in `.env.example`. Best balance of accuracy and structured-output reliability for most production use; needs a decent GPU to hit sub-2s latency. |
+| `llama3.2-vision:11b` | 11B | Strong general scene understanding, slower than the qwen-vl models at similar accuracy; worth trying if qwen3-vl underperforms on your footage. |
+| `minicpm-v` | ~8B | Competitive alternative to qwen3-vl, sometimes better at OCR/text-in-frame (e.g. on-screen graphics, signage). |
+| `llava:13b` / `llava:34b` | 13B / 34B | Higher quality but noticeably slower; only worth it for `motion` mode with a generous `MIN_FRAME_INTERVAL`, or non-realtime backfill use cases. |
+
+Always run [`node scripts/ollama-smoke-test.js`](scripts/ollama-smoke-test.js)
+against a candidate model before committing to it — confirm latency is
+comfortably under `FRAME_INTERVAL` and that the response is valid JSON
+matching your system prompt's schema (Ollama's `format: "json"` constrains
+syntax, but not your specific field names/enums).
+
 ## Writing a system prompt
 
 The system prompt (`SYSTEM_PROMPT_FILE`) tells the model what to look for and
