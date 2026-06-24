@@ -3,7 +3,9 @@ import { MotionDetector } from './motionDetector.js';
 
 /**
  * Selects frame source(s) based on TRIGGER_MODE and exposes a single
- * onFrame(callback) interface, deduplicated by minFrameInterval in 'both' mode.
+ * onFrame(callback) interface. Frames are deduplicated by MIN_FRAME_INTERVAL
+ * whenever a MotionDetector is active ('motion' or 'both' modes), since
+ * scene-change events can otherwise fire arbitrarily fast.
  */
 export class FrameBroker {
   constructor(config) {
@@ -30,7 +32,6 @@ export class FrameBroker {
       this.motionDetector = new MotionDetector({
         ...common,
         threshold: config.SCENE_CHANGE_THRESHOLD,
-        minFrameInterval: config.MIN_FRAME_INTERVAL,
       });
       this.sources.push(this.motionDetector);
     }
@@ -38,10 +39,11 @@ export class FrameBroker {
 
   onFrame(callback) {
     const dedupeMs = this.config.MIN_FRAME_INTERVAL * 1000;
+    const needsDedupe = this.config.TRIGGER_MODE === 'motion' || this.config.TRIGGER_MODE === 'both';
     for (const source of this.sources) {
       source.on('frame', (buffer) => {
         const now = Date.now();
-        if (this.config.TRIGGER_MODE === 'both' && now - this.lastEmitAt < dedupeMs) {
+        if (needsDedupe && now - this.lastEmitAt < dedupeMs) {
           return;
         }
         this.lastEmitAt = now;

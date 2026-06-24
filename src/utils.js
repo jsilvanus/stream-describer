@@ -4,6 +4,7 @@ export function jpegBufferToBase64(buffer) {
 
 const JPEG_SOI = Buffer.from([0xff, 0xd8]);
 const JPEG_EOI = Buffer.from([0xff, 0xd9]);
+const EMPTY_BUFFER = Buffer.alloc(0);
 
 /**
  * Splits a raw byte stream (e.g. ffmpeg image2pipe mjpeg output) into
@@ -12,7 +13,7 @@ const JPEG_EOI = Buffer.from([0xff, 0xd9]);
  * @param {(frame: Buffer) => void} onFrame
  */
 export function splitMjpegStream(stream, onFrame) {
-  let buffer = Buffer.alloc(0);
+  let buffer = EMPTY_BUFFER;
 
   stream.on('data', (chunk) => {
     buffer = Buffer.concat([buffer, chunk]);
@@ -20,7 +21,7 @@ export function splitMjpegStream(stream, onFrame) {
     for (;;) {
       const start = buffer.indexOf(JPEG_SOI);
       if (start === -1) {
-        buffer = Buffer.alloc(0);
+        buffer = EMPTY_BUFFER;
         break;
       }
       const end = buffer.indexOf(JPEG_EOI, start + JPEG_SOI.length);

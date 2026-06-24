@@ -52,7 +52,7 @@ export class InferenceEngine extends EventEmitter {
         result = await this.ollama.chat({
           systemPrompt,
           userContent,
-          images: [...priorImages, frameB64],
+          images: priorImages.concat(frameB64),
         });
       } catch (err) {
         logger.warn({ err }, 'inference call failed, skipping frame');

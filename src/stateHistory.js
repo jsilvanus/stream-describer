@@ -29,7 +29,7 @@ export class StateHistory {
   }
 
   getImages() {
-    return [...this.images];
+    return this.images;
   }
 
   getLatest() {
