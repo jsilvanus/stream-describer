@@ -48,10 +48,30 @@ export async function bootstrap() {
   return { ollama, promptLoader, stateHistory, inferenceEngine, frameBroker, server };
 }
 
+export async function shutdown({ frameBroker, inferenceEngine, server }) {
+  logger.info('shutting down stream-describer');
+  frameBroker.stop();
+  await inferenceEngine.drain();
+  await server.close();
+  logger.info('shutdown complete');
+}
+
 const isMain = import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
   bootstrap()
-    .then(({ frameBroker }) => frameBroker.start())
+    .then((deps) => {
+      deps.frameBroker.start();
+      const onSignal = () => {
+        shutdown(deps)
+          .then(() => process.exit(0))
+          .catch((err) => {
+            logger.error({ err }, 'error during shutdown');
+            process.exit(1);
+          });
+      };
+      process.once('SIGTERM', onSignal);
+      process.once('SIGINT', onSignal);
+    })
     .catch((err) => {
       logger.error({ err }, 'fatal error during startup');
       process.exit(1);

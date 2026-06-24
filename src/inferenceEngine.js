@@ -25,6 +25,7 @@ export class InferenceEngine extends EventEmitter {
     this.lastInferenceAt = null;
     this.lastLatencyMs = null;
     this.lastChanged = null;
+    this.inFlight = 0;
   }
 
   buildUserContent(frameB64) {
@@ -38,38 +39,50 @@ export class InferenceEngine extends EventEmitter {
   }
 
   async processFrame(frameBuffer, frameB64) {
-    this.lastFrameAt = new Date().toISOString();
-
-    const systemPrompt = this.promptLoader.get();
-    const priorImages = this.stateHistory.getImages();
-    const userContent = this.buildUserContent(frameB64);
-
-    let result;
+    this.inFlight += 1;
     try {
-      result = await this.ollama.chat({
-        systemPrompt,
-        userContent,
-        images: [...priorImages, frameB64],
-      });
-    } catch (err) {
-      logger.warn({ err }, 'inference call failed, skipping frame');
-      this.emit('inferenceError', err);
-      return null;
+      this.lastFrameAt = new Date().toISOString();
+
+      const systemPrompt = this.promptLoader.get();
+      const priorImages = this.stateHistory.getImages();
+      const userContent = this.buildUserContent(frameB64);
+
+      let result;
+      try {
+        result = await this.ollama.chat({
+          systemPrompt,
+          userContent,
+          images: [...priorImages, frameB64],
+        });
+      } catch (err) {
+        logger.warn({ err }, 'inference call failed, skipping frame');
+        this.emit('inferenceError', err);
+        return null;
+      }
+
+      this.lastInferenceAt = new Date().toISOString();
+      this.lastLatencyMs = result.latencyMs;
+
+      const current = tryParseJson(result.content);
+      const previousEntry = this.stateHistory.getLatest();
+      const previous = previousEntry ? previousEntry.state : null;
+      const changed = previous == null ? true : !isDeepStrictEqual(previous, current);
+
+      this.stateHistory.push(current, frameB64);
+      this.lastChanged = changed;
+
+      const event = { previous, current, timestamp: this.lastInferenceAt, changed };
+      this.emit('stateChange', event);
+      return event;
+    } finally {
+      this.inFlight -= 1;
     }
+  }
 
-    this.lastInferenceAt = new Date().toISOString();
-    this.lastLatencyMs = result.latencyMs;
-
-    const current = tryParseJson(result.content);
-    const previousEntry = this.stateHistory.getLatest();
-    const previous = previousEntry ? previousEntry.state : null;
-    const changed = previous == null ? true : !isDeepStrictEqual(previous, current);
-
-    this.stateHistory.push(current, frameB64);
-    this.lastChanged = changed;
-
-    const event = { previous, current, timestamp: this.lastInferenceAt, changed };
-    this.emit('stateChange', event);
-    return event;
+  /** Waits for all in-flight inference calls to complete, polling at the given interval. */
+  async drain(pollMs = 50) {
+    while (this.inFlight > 0) {
+      await new Promise((resolve) => setTimeout(resolve, pollMs));
+    }
   }
 }

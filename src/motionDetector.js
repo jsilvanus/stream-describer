@@ -22,7 +22,18 @@ export class MotionDetector extends EventEmitter {
     this.stopped = false;
     this.reconnectAttempts = 0;
     this.connected = false;
+    this.exhausted = false;
+    this.started = false;
     this.lastEmitAt = 0;
+  }
+
+  getStatus() {
+    return {
+      connected: this.connected,
+      reconnecting: this.started && !this.connected && !this.stopped && !this.exhausted,
+      reconnectAttempts: this.reconnectAttempts,
+      exhausted: this.exhausted,
+    };
   }
 
   buildArgs() {
@@ -39,6 +50,7 @@ export class MotionDetector extends EventEmitter {
 
   start() {
     this.stopped = false;
+    this.started = true;
     this._spawn();
   }
 
@@ -75,6 +87,7 @@ export class MotionDetector extends EventEmitter {
 
   _scheduleReconnect() {
     if (this.reconnectMax > 0 && this.reconnectAttempts >= this.reconnectMax) {
+      this.exhausted = true;
       logger.error({ attempts: this.reconnectAttempts }, 'motion detector: max reconnect attempts reached');
       this.emit('reconnectExhausted');
       return;

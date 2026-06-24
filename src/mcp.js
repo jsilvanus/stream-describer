@@ -72,6 +72,7 @@ export function createMcpServer({ config, stateHistory, promptLoader, inferenceE
     async () => {
       const result = {
         streamConnected: frameBroker.isConnected(),
+        sources: frameBroker.getStatus(),
         triggerMode: config.TRIGGER_MODE,
         lastFrameAt: inferenceEngine.lastFrameAt,
         lastInferenceAt: inferenceEngine.lastInferenceAt,

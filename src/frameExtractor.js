@@ -21,6 +21,17 @@ export class FrameExtractor extends EventEmitter {
     this.stopped = false;
     this.reconnectAttempts = 0;
     this.connected = false;
+    this.exhausted = false;
+    this.started = false;
+  }
+
+  getStatus() {
+    return {
+      connected: this.connected,
+      reconnecting: this.started && !this.connected && !this.stopped && !this.exhausted,
+      reconnectAttempts: this.reconnectAttempts,
+      exhausted: this.exhausted,
+    };
   }
 
   buildArgs() {
@@ -36,6 +47,7 @@ export class FrameExtractor extends EventEmitter {
 
   start() {
     this.stopped = false;
+    this.started = true;
     this._spawn();
   }
 
@@ -67,6 +79,7 @@ export class FrameExtractor extends EventEmitter {
 
   _scheduleReconnect() {
     if (this.reconnectMax > 0 && this.reconnectAttempts >= this.reconnectMax) {
+      this.exhausted = true;
       logger.error({ attempts: this.reconnectAttempts }, 'frame extractor: max reconnect attempts reached');
       this.emit('reconnectExhausted');
       return;

@@ -60,6 +60,10 @@ export class FrameBroker {
     return this.sources.some((s) => s.connected);
   }
 
+  getStatus() {
+    return this.sources.map((s) => s.getStatus());
+  }
+
   start() {
     for (const source of this.sources) source.start();
   }
