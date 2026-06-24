@@ -1,0 +1,34 @@
+# Example compose file for local development / LCYT integration testing.
+# Not intended for production use as-is.
+services:
+  stream-describer:
+    build: .
+    image: stream-describer:local
+    env_file:
+      - .env
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./system-prompt.md:/app/system-prompt.md:ro
+    depends_on:
+      - ollama
+    networks:
+      - lcyt-net
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - lcyt-net
+    restart: unless-stopped
+
+networks:
+  lcyt-net:
+    driver: bridge
+
+volumes:
+  ollama-data:
