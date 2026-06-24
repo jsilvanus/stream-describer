@@ -2,6 +2,11 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { checkFfmpeg } from './ffmpegCheck.js';
 import { OllamaClient } from './ollama.js';
+import { PromptLoader } from './promptLoader.js';
+import { StateHistory } from './stateHistory.js';
+import { InferenceEngine } from './inferenceEngine.js';
+import { FrameBroker } from './frameBroker.js';
+import { jpegBufferToBase64 } from './utils.js';
 
 export async function bootstrap() {
   logger.info({ triggerMode: config.TRIGGER_MODE }, 'starting stream-describer');
@@ -13,13 +18,34 @@ export async function bootstrap() {
   await ollama.verifyReachable();
   logger.info({ ollamaUrl: config.OLLAMA_URL, model: config.OLLAMA_MODEL }, 'ollama reachable');
 
-  return { ollama };
+  const promptLoader = new PromptLoader(config.SYSTEM_PROMPT_FILE);
+  await promptLoader.load();
+  logger.info({ path: config.SYSTEM_PROMPT_FILE }, 'system prompt loaded');
+
+  const stateHistory = new StateHistory({
+    historyDepth: config.HISTORY_DEPTH,
+    historyImages: config.HISTORY_IMAGES,
+  });
+
+  const inferenceEngine = new InferenceEngine({ ollama, promptLoader, stateHistory });
+
+  const frameBroker = new FrameBroker(config);
+  frameBroker.onFrame((frameBuffer) => {
+    const frameB64 = jpegBufferToBase64(frameBuffer);
+    inferenceEngine.processFrame(frameBuffer, frameB64).catch((err) => {
+      logger.error({ err }, 'unhandled error processing frame');
+    });
+  });
+
+  return { ollama, promptLoader, stateHistory, inferenceEngine, frameBroker };
 }
 
 const isMain = import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
-  bootstrap().catch((err) => {
-    logger.error({ err }, 'fatal error during startup');
-    process.exit(1);
-  });
+  bootstrap()
+    .then(({ frameBroker }) => frameBroker.start())
+    .catch((err) => {
+      logger.error({ err }, 'fatal error during startup');
+      process.exit(1);
+    });
 }
