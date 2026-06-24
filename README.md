@@ -110,6 +110,9 @@ between calls.
 Tools exposed:
 
 - **`describe`** — latest scene state, with `changed` flag and stream status.
+- **`describe_now`** — captures a single current frame directly from the
+  stream (bypassing the fps/motion schedule) and runs inference on it
+  immediately, returning the result synchronously.
 - **`get_history`** — last `n` states (default `HISTORY_DEPTH`).
 - **`restart`** — reload the system prompt (`systemPromptPath` or
   `systemPromptContent`) and clear state history.

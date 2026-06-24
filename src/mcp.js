@@ -2,13 +2,22 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import { logger } from './logger.js';
+import { captureSnapshot as defaultCaptureSnapshot } from './snapshot.js';
+import { jpegBufferToBase64 } from './utils.js';
 
 /**
  * Builds an McpServer exposing the stream-describer tools, bound to the
  * running app's state. A fresh server+transport pair is created per HTTP
  * request (stateless mode) so tool reads always reflect current state.
  */
-export function createMcpServer({ config, stateHistory, promptLoader, inferenceEngine, frameBroker }) {
+export function createMcpServer({
+  config,
+  stateHistory,
+  promptLoader,
+  inferenceEngine,
+  frameBroker,
+  captureSnapshot = defaultCaptureSnapshot,
+}) {
   const server = new McpServer({ name: 'stream-describer', version: '1.0.0' });
 
   server.registerTool(
@@ -38,6 +47,41 @@ export function createMcpServer({ config, stateHistory, promptLoader, inferenceE
     async ({ n }) => {
       const history = stateHistory.getHistory(n ?? config.HISTORY_DEPTH);
       return { content: [{ type: 'text', text: JSON.stringify(history) }] };
+    }
+  );
+
+  server.registerTool(
+    'describe_now',
+    {
+      description:
+        'Captures a single current frame directly from the stream (bypassing the fps/motion schedule) and runs inference on it immediately.',
+      inputSchema: {},
+    },
+    async () => {
+      let frameBuffer;
+      try {
+        frameBuffer = await captureSnapshot({
+          streamUrl: config.STREAM_URL,
+          width: config.FRAME_WIDTH,
+          height: config.FRAME_HEIGHT,
+        });
+      } catch (err) {
+        logger.warn({ err }, 'describe_now: snapshot capture failed');
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ error: 'snapshot_failed', message: err.message }) }],
+          isError: true,
+        };
+      }
+
+      const frameB64 = jpegBufferToBase64(frameBuffer);
+      const result = await inferenceEngine.processFrame(frameBuffer, frameB64);
+      if (!result) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ error: 'inference_failed' }) }],
+          isError: true,
+        };
+      }
+      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
     }
   );
 
