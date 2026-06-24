@@ -7,6 +7,8 @@ import { StateHistory } from './stateHistory.js';
 import { InferenceEngine } from './inferenceEngine.js';
 import { FrameBroker } from './frameBroker.js';
 import { jpegBufferToBase64 } from './utils.js';
+import { createServer } from './server.js';
+import { setupWebhook } from './webhook.js';
 
 export async function bootstrap() {
   logger.info({ triggerMode: config.TRIGGER_MODE }, 'starting stream-describer');
@@ -37,7 +39,13 @@ export async function bootstrap() {
     });
   });
 
-  return { ollama, promptLoader, stateHistory, inferenceEngine, frameBroker };
+  setupWebhook({ inferenceEngine, config });
+
+  const server = await createServer({ config, stateHistory, promptLoader, inferenceEngine, frameBroker });
+  await server.listen({ host: '0.0.0.0', port: config.MCP_PORT });
+  logger.info({ port: config.MCP_PORT }, 'mcp server listening');
+
+  return { ollama, promptLoader, stateHistory, inferenceEngine, frameBroker, server };
 }
 
 const isMain = import.meta.url === `file://${process.argv[1]}`;

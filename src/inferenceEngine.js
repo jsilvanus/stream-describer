@@ -24,6 +24,7 @@ export class InferenceEngine extends EventEmitter {
     this.lastFrameAt = null;
     this.lastInferenceAt = null;
     this.lastLatencyMs = null;
+    this.lastChanged = null;
   }
 
   buildUserContent(frameB64) {
@@ -65,6 +66,7 @@ export class InferenceEngine extends EventEmitter {
     const changed = previous == null ? true : !isDeepStrictEqual(previous, current);
 
     this.stateHistory.push(current, frameB64);
+    this.lastChanged = changed;
 
     const event = { previous, current, timestamp: this.lastInferenceAt, changed };
     this.emit('stateChange', event);
