@@ -8,7 +8,7 @@ import { PromptLoader } from '../src/promptLoader.js';
 import { InferenceEngine } from '../src/inferenceEngine.js';
 import { FrameBroker } from '../src/frameBroker.js';
 
-async function setup() {
+async function setup({ captureSnapshot } = {}) {
   const config = {
     HISTORY_DEPTH: 5,
     HISTORY_IMAGES: 0,
@@ -29,7 +29,14 @@ async function setup() {
   const inferenceEngine = new InferenceEngine({ ollama, promptLoader, stateHistory });
   const frameBroker = new FrameBroker(config);
 
-  const server = createMcpServer({ config, stateHistory, promptLoader, inferenceEngine, frameBroker });
+  const server = createMcpServer({
+    config,
+    stateHistory,
+    promptLoader,
+    inferenceEngine,
+    frameBroker,
+    ...(captureSnapshot ? { captureSnapshot } : {}),
+  });
   const client = new Client({ name: 'test-client', version: '1.0' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -62,6 +69,26 @@ test('get_history returns pushed states', async () => {
   const data = JSON.parse(result.content[0].text);
   assert.equal(data.length, 1);
   assert.deepEqual(data[0].state, { a: 2 });
+});
+
+test('describe_now captures a frame and returns the inferred state', async () => {
+  const captureSnapshot = async () => Buffer.from('frame-bytes');
+  const { client, stateHistory } = await setup({ captureSnapshot });
+  const result = await client.callTool({ name: 'describe_now', arguments: {} });
+  const data = JSON.parse(result.content[0].text);
+  assert.deepEqual(data.current, { description: 'a' });
+  assert.equal(stateHistory.getLatest().state.description, 'a');
+});
+
+test('describe_now returns an error when snapshot capture fails', async () => {
+  const captureSnapshot = async () => {
+    throw new Error('ffmpeg exploded');
+  };
+  const { client } = await setup({ captureSnapshot });
+  const result = await client.callTool({ name: 'describe_now', arguments: {} });
+  const data = JSON.parse(result.content[0].text);
+  assert.equal(result.isError, true);
+  assert.equal(data.error, 'snapshot_failed');
 });
 
 test('restart clears history and reloads inline prompt', async () => {
