@@ -14,7 +14,7 @@ function fakePromptLoader() {
 test('drain resolves immediately when nothing in flight', async () => {
   const stateHistory = new StateHistory({ historyDepth: 5, historyImages: 0 });
   const engine = new InferenceEngine({
-    ollama: { chat: async () => ({ content: '{}', latencyMs: 1 }) },
+    visionClient: { chat: async () => ({ content: '{}', latencyMs: 1 }) },
     promptLoader: fakePromptLoader(),
     stateHistory,
   });
@@ -24,14 +24,14 @@ test('drain resolves immediately when nothing in flight', async () => {
 
 test('drain waits for in-flight inference to finish', async () => {
   let resolveChat;
-  const ollama = {
+  const visionClient = {
     chat: () =>
       new Promise((resolve) => {
         resolveChat = () => resolve({ content: '{}', latencyMs: 1 });
       }),
   };
   const stateHistory = new StateHistory({ historyDepth: 5, historyImages: 0 });
-  const engine = new InferenceEngine({ ollama, promptLoader: fakePromptLoader(), stateHistory });
+  const engine = new InferenceEngine({ visionClient, promptLoader: fakePromptLoader(), stateHistory });
 
   const framePromise = engine.processFrame(Buffer.from('x'), 'a');
   assert.equal(engine.inFlight, 1);

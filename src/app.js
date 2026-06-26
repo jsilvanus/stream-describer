@@ -25,23 +25,24 @@ async function createVisionClient(config) {
 export async function bootstrap() {
   logger.info({ triggerMode: config.TRIGGER_MODE }, 'starting stream-describer');
 
-  const ffmpegVersion = await checkFfmpeg();
-  logger.info({ ffmpegVersion }, 'ffmpeg available');
-
-  const ollama = await createVisionClient(config);
-  await ollama.verifyReachable();
-  logger.info({ backend: config.VISION_BACKEND }, 'vision backend ready');
-
   const promptLoader = new PromptLoader(config.SYSTEM_PROMPT_FILE);
-  await promptLoader.load();
+  const [ffmpegVersion, visionClient] = await Promise.all([
+    checkFfmpeg(),
+    createVisionClient(config),
+    promptLoader.load(),
+  ]);
+  logger.info({ ffmpegVersion }, 'ffmpeg available');
   logger.info({ path: config.SYSTEM_PROMPT_FILE }, 'system prompt loaded');
+
+  await visionClient.verifyReachable();
+  logger.info({ backend: config.VISION_BACKEND }, 'vision backend ready');
 
   const stateHistory = new StateHistory({
     historyDepth: config.HISTORY_DEPTH,
     historyImages: config.HISTORY_IMAGES,
   });
 
-  const inferenceEngine = new InferenceEngine({ ollama, promptLoader, stateHistory });
+  const inferenceEngine = new InferenceEngine({ visionClient, promptLoader, stateHistory });
 
   const frameBroker = new FrameBroker(config);
   frameBroker.onFrame((frameBuffer) => {
@@ -57,17 +58,15 @@ export async function bootstrap() {
   await server.listen({ host: '0.0.0.0', port: config.MCP_PORT });
   logger.info({ port: config.MCP_PORT }, 'mcp server listening');
 
-  return { ollama, promptLoader, stateHistory, inferenceEngine, frameBroker, server };
+  return { visionClient, promptLoader, stateHistory, inferenceEngine, frameBroker, server };
 }
 
-export async function shutdown({ frameBroker, inferenceEngine, server, ollama }) {
+export async function shutdown({ frameBroker, inferenceEngine, server, visionClient }) {
   logger.info('shutting down stream-describer');
   frameBroker.stop();
   await inferenceEngine.drain();
   await server.close();
-  if (typeof ollama?.destroy === 'function') {
-    await ollama.destroy();
-  }
+  await visionClient.destroy();
   logger.info('shutdown complete');
 }
 

@@ -1,5 +1,4 @@
 import { VqaAssistant } from '@jsilvanus/seedeer';
-import { logger } from './logger.js';
 
 /**
  * Wraps seedeer's VqaAssistant behind the same `chat({systemPrompt, userContent,
@@ -46,13 +45,4 @@ export class SeedeerClient {
   }
 }
 
-export async function smokeTest(client, testImageB64) {
-  logger.info({ model: client.model }, 'running seedeer smoke test');
-  const { content, latencyMs } = await client.chat({
-    systemPrompt: 'Respond with a JSON object describing this image in one field: "description".',
-    userContent: 'Describe this test image.',
-    images: [testImageB64],
-  });
-  logger.info({ latencyMs, content }, 'seedeer smoke test complete');
-  return { content, latencyMs };
-}
+export { smokeTest } from './visionSmokeTest.js';

@@ -13,6 +13,7 @@ async function setup({ captureSnapshot } = {}) {
     HISTORY_DEPTH: 5,
     HISTORY_IMAGES: 0,
     TRIGGER_MODE: 'fps',
+    VISION_BACKEND: 'ollama',
     OLLAMA_MODEL: 'test-model',
     STREAM_URL: 'rtsp://test.invalid',
     FRAME_WIDTH: 320,
@@ -25,8 +26,8 @@ async function setup({ captureSnapshot } = {}) {
   const stateHistory = new StateHistory({ historyDepth: 5, historyImages: 0 });
   const promptLoader = new PromptLoader('unused');
   promptLoader.content = 'system prompt';
-  const ollama = { chat: async () => ({ content: '{"description":"a"}', latencyMs: 7 }) };
-  const inferenceEngine = new InferenceEngine({ ollama, promptLoader, stateHistory });
+  const visionClient = { chat: async () => ({ content: '{"description":"a"}', latencyMs: 7 }) };
+  const inferenceEngine = new InferenceEngine({ visionClient, promptLoader, stateHistory });
   const frameBroker = new FrameBroker(config);
 
   const server = createMcpServer({
@@ -49,7 +50,7 @@ test('status tool reports trigger mode and model', async () => {
   const result = await client.callTool({ name: 'status', arguments: {} });
   const data = JSON.parse(result.content[0].text);
   assert.equal(data.triggerMode, 'fps');
-  assert.equal(data.ollamaModel, 'test-model');
+  assert.equal(data.visionModel, 'test-model');
 });
 
 test('describe returns latest state after a frame is processed', async () => {

@@ -23,8 +23,8 @@ async function buildDeps() {
   const stateHistory = new StateHistory({ historyDepth: 5, historyImages: 0 });
   const promptLoader = new PromptLoader('unused');
   promptLoader.content = 'system prompt';
-  const ollama = { chat: async () => ({ content: '{"description":"ok"}', latencyMs: 1 }) };
-  const inferenceEngine = new InferenceEngine({ ollama, promptLoader, stateHistory });
+  const visionClient = { chat: async () => ({ content: '{"description":"ok"}', latencyMs: 1 }) };
+  const inferenceEngine = new InferenceEngine({ visionClient, promptLoader, stateHistory });
   const frameBroker = new FrameBroker(config);
   return { config, stateHistory, promptLoader, inferenceEngine, frameBroker };
 }

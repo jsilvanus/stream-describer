@@ -122,7 +122,7 @@ export function createMcpServer({
         lastInferenceAt: inferenceEngine.lastInferenceAt,
         lastLatencyMs: inferenceEngine.lastLatencyMs,
         visionBackend: config.VISION_BACKEND,
-        ollamaModel: config.OLLAMA_MODEL,
+        visionModel: config.VISION_BACKEND === 'seedeer' ? config.SEEDEER_MODEL : config.OLLAMA_MODEL,
       };
       return { content: [{ type: 'text', text: JSON.stringify(result) }] };
     }

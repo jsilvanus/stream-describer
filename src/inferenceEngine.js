@@ -16,9 +16,9 @@ function tryParseJson(text) {
  * response, and updates state history. Emits 'stateChange' on every result.
  */
 export class InferenceEngine extends EventEmitter {
-  constructor({ ollama, promptLoader, stateHistory }) {
+  constructor({ visionClient, promptLoader, stateHistory }) {
     super();
-    this.ollama = ollama;
+    this.visionClient = visionClient;
     this.promptLoader = promptLoader;
     this.stateHistory = stateHistory;
     this.lastFrameAt = null;
@@ -49,7 +49,7 @@ export class InferenceEngine extends EventEmitter {
 
       let result;
       try {
-        result = await this.ollama.chat({
+        result = await this.visionClient.chat({
           systemPrompt,
           userContent,
           images: priorImages.concat(frameB64),

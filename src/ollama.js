@@ -1,5 +1,3 @@
-import { logger } from './logger.js';
-
 export class OllamaClient {
   constructor({ baseUrl, model }) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -43,15 +41,8 @@ export class OllamaClient {
     const data = await res.json();
     return { content: data.message?.content ?? '', latencyMs };
   }
+
+  async destroy() {}
 }
 
-export async function smokeTest(client, testImageB64) {
-  logger.info({ model: client.model }, 'running ollama smoke test');
-  const { content, latencyMs } = await client.chat({
-    systemPrompt: 'Respond with a JSON object describing this image in one field: "description".',
-    userContent: 'Describe this test image.',
-    images: [testImageB64],
-  });
-  logger.info({ latencyMs, content }, 'ollama smoke test complete');
-  return { content, latencyMs };
-}
+export { smokeTest } from './visionSmokeTest.js';
