@@ -2,6 +2,7 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { checkFfmpeg } from './ffmpegCheck.js';
 import { OllamaClient } from './ollama.js';
+import { SeedeerClient } from './seedeer.js';
 import { PromptLoader } from './promptLoader.js';
 import { StateHistory } from './stateHistory.js';
 import { InferenceEngine } from './inferenceEngine.js';
@@ -10,15 +11,26 @@ import { jpegBufferToBase64 } from './utils.js';
 import { createServer } from './server.js';
 import { setupWebhook } from './webhook.js';
 
+async function createVisionClient(config) {
+  if (config.VISION_BACKEND === 'seedeer') {
+    return SeedeerClient.create({
+      model: config.SEEDEER_MODEL,
+      mode: config.SEEDEER_MODE,
+      device: config.SEEDEER_DEVICE,
+    });
+  }
+  return new OllamaClient({ baseUrl: config.OLLAMA_URL, model: config.OLLAMA_MODEL });
+}
+
 export async function bootstrap() {
   logger.info({ triggerMode: config.TRIGGER_MODE }, 'starting stream-describer');
 
   const ffmpegVersion = await checkFfmpeg();
   logger.info({ ffmpegVersion }, 'ffmpeg available');
 
-  const ollama = new OllamaClient({ baseUrl: config.OLLAMA_URL, model: config.OLLAMA_MODEL });
+  const ollama = await createVisionClient(config);
   await ollama.verifyReachable();
-  logger.info({ ollamaUrl: config.OLLAMA_URL, model: config.OLLAMA_MODEL }, 'ollama reachable');
+  logger.info({ backend: config.VISION_BACKEND }, 'vision backend ready');
 
   const promptLoader = new PromptLoader(config.SYSTEM_PROMPT_FILE);
   await promptLoader.load();
@@ -48,11 +60,14 @@ export async function bootstrap() {
   return { ollama, promptLoader, stateHistory, inferenceEngine, frameBroker, server };
 }
 
-export async function shutdown({ frameBroker, inferenceEngine, server }) {
+export async function shutdown({ frameBroker, inferenceEngine, server, ollama }) {
   logger.info('shutting down stream-describer');
   frameBroker.stop();
   await inferenceEngine.drain();
   await server.close();
+  if (typeof ollama?.destroy === 'function') {
+    await ollama.destroy();
+  }
   logger.info('shutdown complete');
 }
 

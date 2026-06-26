@@ -37,8 +37,12 @@ changes. Designed to slot into the LCYT ecosystem as a peer container.
 | Variable | Type | Default | Description |
 |---|---|---|---|
 | `STREAM_URL` | string | *(required)* | Any ffmpeg-readable stream URL (RTSP/HTTP/file). |
-| `OLLAMA_URL` | string | `http://ollama:11434` | Base URL of the Ollama server. |
-| `OLLAMA_MODEL` | string | `qwen3-vl:8b` | Vision-capable model to run inference with. |
+| `VISION_BACKEND` | `ollama` \| `seedeer` | `ollama` | Which vision provider runs inference. |
+| `OLLAMA_URL` | string | `http://ollama:11434` | Base URL of the Ollama server (when `VISION_BACKEND=ollama`). |
+| `OLLAMA_MODEL` | string | `qwen3-vl:8b` | Vision-capable model to run inference with (when `VISION_BACKEND=ollama`). |
+| `SEEDEER_MODEL` | string | `HuggingFaceTB/SmolVLM-256M-Instruct` | Hugging Face VQA model id (when `VISION_BACKEND=seedeer`). |
+| `SEEDEER_MODE` | `process` \| `thread` \| `socket` \| `grpc` | `process` | seedeer worker pool execution mode. |
+| `SEEDEER_DEVICE` | `cpu` \| `gpu` \| `auto` | `auto` | Inference device for the seedeer backend. |
 | `SYSTEM_PROMPT_FILE` | string | `./system-prompt.md` | Path to the system prompt defining the JSON schema. |
 | `TRIGGER_MODE` | `fps` \| `motion` \| `both` | `fps` | How frames are selected for inference. |
 | `FRAME_INTERVAL` | number (seconds) | `2` | Interval between captures in `fps` mode. |
@@ -75,6 +79,26 @@ against a candidate model before committing to it — confirm latency is
 comfortably under `FRAME_INTERVAL` and that the response is valid JSON
 matching your system prompt's schema (Ollama's `format: "json"` constrains
 syntax, but not your specific field names/enums).
+
+## Using the seedeer backend
+
+Setting `VISION_BACKEND=seedeer` swaps Ollama for
+[`@jsilvanus/seedeer`](https://github.com/jsilvanus/deer/tree/main/packages/seedeer)'s
+`VqaAssistant`, running a small VLM locally in-process (no separate model
+server required, though `SEEDEER_MODE=socket`/`grpc` can point at a shared
+daemon). This trades Ollama's larger model selection for a self-contained
+Node dependency with no external service to keep reachable.
+
+Notes:
+
+- Only the single most recent frame is sent per call — `VqaAssistant.ask`
+  takes one image, unlike Ollama's multi-image chat. Prior JSON state history
+  still flows through as text via `userContent`, so `HISTORY_IMAGES` has no
+  effect with this backend.
+- `SEEDEER_MODEL` defaults to `HuggingFaceTB/SmolVLM-256M-Instruct`; the first
+  run downloads it to `~/.seedeer/models`.
+- As with Ollama, confirm latency stays under `FRAME_INTERVAL` for your
+  chosen model/device before relying on it in production.
 
 ## Writing a system prompt
 
