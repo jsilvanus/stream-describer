@@ -15,6 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "@fastify/cors": "^9.0.1",
+    "@jsilvanus/seedeer": "^0.2.0",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",

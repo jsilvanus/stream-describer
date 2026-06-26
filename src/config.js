@@ -10,8 +10,12 @@ const boolish = z
 
 const ConfigSchema = z.object({
   STREAM_URL: z.string().min(1, 'STREAM_URL is required'),
+  VISION_BACKEND: z.enum(['ollama', 'seedeer']).default('ollama'),
   OLLAMA_URL: z.string().default('http://ollama:11434'),
   OLLAMA_MODEL: z.string().default('qwen3-vl:8b'),
+  SEEDEER_MODEL: z.string().default('HuggingFaceTB/SmolVLM-256M-Instruct'),
+  SEEDEER_MODE: z.enum(['process', 'thread', 'socket', 'grpc']).default('process'),
+  SEEDEER_DEVICE: z.enum(['cpu', 'gpu', 'auto']).default('auto'),
   SYSTEM_PROMPT_FILE: z.string().default('./system-prompt.md'),
   TRIGGER_MODE: z.enum(['fps', 'motion', 'both']).default('fps'),
   FRAME_INTERVAL: z.coerce.number().positive().default(2),
